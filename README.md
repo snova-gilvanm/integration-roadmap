@@ -8,7 +8,7 @@ Version-controlled home of the **Integrations Roadmap** artifact and the Claude 
 ## Layout
 
 ```
-integration-backlog-monitor-v2/   the skill (what gets installed)
+.claude/skills/integration-backlog-monitor-v2/   the skill (what gets installed)
   SKILL.md                        instructions Claude follows
   CHANGELOG.md                    what changed in each version
   scripts/                        refresh pipeline: extract, trending, build, gaps, inject
@@ -20,7 +20,7 @@ tests/check_build.py              regression check: build.py must reproduce the 
 
 1. Branch, edit the skill (and `artifact/index.html` if the page changed).
 2. Run `python3 tests/check_build.py`.
-3. Add an entry to `integration-backlog-monitor-v2/CHANGELOG.md` and bump the version line in `SKILL.md`
+3. Add an entry to `.claude/skills/integration-backlog-monitor-v2/CHANGELOG.md` and bump the version line in `SKILL.md`
    (major: breaking data or workflow change; minor: new feature; patch: fixes and wording).
 4. Open a PR; tag the merge `vX.Y.Z`.
 
@@ -29,7 +29,7 @@ tests/check_build.py              regression check: build.py must reproduce the 
 Package the folder and hand the file to whoever manages the organization's plugins:
 
 ```
-zip -r integration-backlog-monitor-v2.skill integration-backlog-monitor-v2 -x '*/__pycache__/*'
+cd .claude/skills && zip -r ../../integration-backlog-monitor-v2.skill integration-backlog-monitor-v2 -x '*/__pycache__/*'
 ```
 
 The installed skill name stays `integration-backlog-monitor-v2` so each release replaces it in place.

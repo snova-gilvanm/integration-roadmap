@@ -7,7 +7,7 @@ Run it after changing any MAINT_* map or template, then update artifact/index.ht
 """
 import json, os, re, subprocess, sys, tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SKILL = os.path.join(ROOT, 'integration-backlog-monitor-v2')
+SKILL = os.path.join(ROOT, '.claude', 'skills', 'integration-backlog-monitor-v2')
 html = open(os.path.join(ROOT, 'artifact', 'index.html'), encoding='utf-8').read()
 D = json.loads(re.search(r'id="data">(.*?)</script>', html, re.S).group(1).replace('<\\/', '</'))
 work = tempfile.mkdtemp()

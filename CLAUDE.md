@@ -2,7 +2,7 @@
 
 ## Skill Development
 
-This repository maintains the **integration-backlog-monitor** skill for managing SambaNova's integrations roadmap.
+This repository maintains the **integration-backlog-monitor-v2** skill for managing SambaNova's integrations roadmap.
 
 ### Core Principles
 
@@ -13,7 +13,7 @@ This repository maintains the **integration-backlog-monitor** skill for managing
 
 ### Before Making Changes
 
-1. Check the "Golden rules" section in `.claude/skills/integration-backlog-monitor/SKILL.md`
+1. Check the "Golden rules" section in `.claude/skills/integration-backlog-monitor-v2/SKILL.md`
 2. Verify all facts against official sources
 3. Never use the em dash character (U+2014) in your text
 4. If publishing changes, always read the artifact first with `Artifact action:"read"`
