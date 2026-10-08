@@ -1,77 +1,41 @@
-# Integration Roadmap Skill
+# integration-roadmap
 
-This repository contains the **integration-backlog-monitor** skill for maintaining SambaNova's Integrations Roadmap artifact (epic CP-1521).
+Version-controlled home of the **Integrations Roadmap** artifact and the Claude skill that maintains it.
 
-## Overview
+- Artifact (claude.ai, owner Gilvan Magalhaes): https://claude.ai/artifact/MV2P1NUii2NkA5hMSXGbRL
+- Jira epic: CP-1521
 
-The Integration Backlog Monitor skill provides tools to:
-- Refresh Jira, docs, and radar data
-- Edit and add content to the integrations roadmap
-- Add new data sources while keeping existing templates
-- Use only official sources (no invented information)
-
-## Quick Start
-
-The skill is available at: https://claude.ai/customize/skills/id/plugin_01BMr4bAmKNAQSpWnsCxDtTq
-
-To use it, invoke the skill when you need to:
-- Update, refresh, or fix the integrations roadmap page
-- Edit the kanban board, timeline, catalog, or stack rank
-- Manage the radar (trending tools, competitor gaps)
-- Maintain the integration backlog
-
-## Repository Structure
+## Layout
 
 ```
-.
-├── .claude/
-│   └── skills/
-│       └── integration-backlog-monitor/
-│           └── SKILL.md          # Skill definition and workflows
-├── README.md                      # This file
-├── .gitignore                     # Git ignore rules
-└── CLAUDE.md                      # Project guidelines
+integration-backlog-monitor-v2/   the skill (what gets installed)
+  SKILL.md                        instructions Claude follows
+  CHANGELOG.md                    what changed in each version
+  scripts/                        refresh pipeline: extract, trending, build, gaps, inject
+artifact/index.html               the last published page (snapshot for diffs and tests)
+tests/check_build.py              regression check: build.py must reproduce the page's maintenance data
 ```
 
-## Key Documentation
+## Making a change
 
-See `.claude/skills/integration-backlog-monitor/SKILL.md` for:
-- Golden rules for maintaining the roadmap
-- Official data sources and how to access them
-- Page architecture and components
-- Workflow procedures (A-F)
-- Script reference for full refresh operations
+1. Branch, edit the skill (and `artifact/index.html` if the page changed).
+2. Run `python3 tests/check_build.py`.
+3. Add an entry to `integration-backlog-monitor-v2/CHANGELOG.md` and bump the version line in `SKILL.md`
+   (major: breaking data or workflow change; minor: new feature; patch: fixes and wording).
+4. Open a PR; tag the merge `vX.Y.Z`.
 
-## Development
+## Releasing the skill
 
-### Adding a New Data Source
-1. Confirm with the user which official source and what question it answers
-2. Fetch it into `$WORK/<source>.json`
-3. Update `build.py` with the new key
-4. Document the snapshot date and formula changes
+Package the folder and hand the file to whoever manages the organization's plugins:
 
-### Updating Roadmap Metadata
-Update the `PLAN` dictionary in `build.py` for new slotted tickets with: `(slug, category, [modes], iface, door)`
+```
+zip -r integration-backlog-monitor-v2.skill integration-backlog-monitor-v2 -x '*/__pycache__/*'
+```
 
-## Official Sources
+The installed skill name stays `integration-backlog-monitor-v2` so each release replaces it in place.
+Keep the old `integration-backlog-monitor` (v1) disabled.
 
-- **Jira**: Epic CP-1521 and child tickets
-- **Docs**: `sambanova/docs` repo, `origin/main`
-- **Live**: docs.sambanova.ai
-- **GitHub metrics**: shields.io (stars, commits, releases, contributors)
-- **Competitors**: Cerebras, Groq, Together, Fireworks, Novita, xAI, DeepSeek
+## After publishing the page
 
-## Related Links
-
-- **Artifact**: https://claude.ai/artifact/MV2P1NUii2NkA5hMSXGbRL
-- **Jira Epic**: CP-1521
-- **Docs Repo**: https://github.com/sambanova/docs
-
-## Version History
-
-See git commits for change history and version tracking.
-
----
-
-Maintained by: Gilvan Magalhaes  
-Last updated: 2026-10-08
+Copy the published page into `artifact/index.html` (ask Claude to read the artifact and give you the file)
+and commit it with the matching changelog entry, so the repo always mirrors what is live.
