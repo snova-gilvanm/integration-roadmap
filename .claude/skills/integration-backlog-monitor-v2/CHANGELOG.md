@@ -3,6 +3,35 @@
 Versions of the `integration-backlog-monitor` skill for the Integrations Roadmap artifact
 (https://claude.ai/artifact/MV2P1NUii2NkA5hMSXGbRL). Newest first.
 
+## 2.2.0 (2026-10-08)
+
+Page
+- Radar: Create in Jira on Trending tools, Competitor gaps and the Signals log, shown only when no open
+  ticket names the tool ("In Jira: CP-xxxx" otherwise). The pop-up suggests one of seven templates from
+  the tool's expected route (OpenAI-compatible config, Upstream provider PR, Provider already upstream with
+  the guide missing, SambaNova package or plugin, Partner or commercial, Cookbook, Route unknown) and
+  drafts the ticket from the Radar's data. Tickets are Stories under CP-1521 labelled `new-integration`
+  and `radar`, with no window. Viewers without the connector get Approve for Jira.
+- Radar legend ("What the labels mean") and hover explanations (`TIP_R`) on the Radar's labels.
+- Stack rank lists Radar tickets without a window as Not scheduled; the Board counts them as roadmap.
+- Checklists of Radar tickets are read from Jira; Checklist behind uses the five Radar stages.
+- Ticket types come only from Jira labels: Maintenance, New integration or Other (change made directly
+  on the page before this release; folded into the skill here).
+- Fixes: long Stack rank titles no longer overflow on phones; long legend labels wrap.
+
+Skill
+- `build.py`: `classify()` uses labels only; `RADAR_TEMPLATES`, `RADAR_STAGES`, `RADAR_ORDER`,
+  `ROUTE_TPL` produce `D.radarT`; `structured()` reads the Category and Integration route lines into
+  `cat` and `modes` for tickets without a `PLAN` row; checklists parsed for `radar` tickets too; the
+  unlinked-maintenance warning uses the page's name rule.
+- Rule 9 covers the Radar tab. New workflow H (Radar to Jira). Vocabulary, collections (`rjira`),
+  capabilities (second watch includes `radar`), verification and orientation updated.
+- `tests/check_build.py` also checks `D.radarT` and every ticket's type; path follows `.claude/skills/`.
+
+Data
+- CP-3183 "Firecrawl integration" (first Radar ticket) and CP-3182 "RooCode maintenance, Oct 2026"
+  (first ticket created from the Maintenance tab by a teammate).
+
 ## 2.1.0 (2026-10-08)
 
 Page

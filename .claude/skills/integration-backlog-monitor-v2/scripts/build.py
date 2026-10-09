@@ -126,13 +126,18 @@ def parse_chk(d):
             g['items'].append({'t': m.group(2).strip(), 'd': m.group(1) != ' '})
     return out or None
 
-def classify(s):
-    if re.search(r'partnership', s, re.I): return 'Partnership'
-    if re.search(r'listing', s, re.I): return 'Catalog listing'
-    if re.search(r'cookbook', s, re.I): return 'Cookbook'
-    if re.search(r'mainten|mantain|maintanance|fix|typo|bugs|test|benchmark|validation|move ', s, re.I): return 'Maintenance'
-    if re.search(r'brief|POC|showcase|eval', s, re.I): return 'Enablement'
-    return 'Integration'
+def classify(labels):
+    # ticket type comes only from Jira labels, never from words in the title (same rule as the page)
+    if 'maintenance' in labels: return 'Maintenance'
+    if 'new-integration' in labels: return 'New integration'
+    return 'Other'
+
+MODES_KNOWN = {'native', 'openai', 'anthropic', 'sdk', 'commercial', 'app', 'adapter', 'partner', 'closed', 'cookbook', 'model'}
+def structured(d):
+    # "Category:" and "Integration route:" lines written by the Radar's Create in Jira templates
+    cat = re.search(r'^Category:\s*(.+?)\s*$', d or '', re.M)
+    route = re.search(r'^Integration route:\s*(\S+)', d or '', re.M)
+    return (cat.group(1) if cat else None), (route.group(1) if route and route.group(1) in MODES_KNOWN else None)
 
 tickets = []
 for r in rows:
@@ -143,11 +148,15 @@ for r in rows:
     t['labels'] = r.get('labels') or []
     t['itype'] = r.get('itype')
     t['ownerOff'] = bool(r.get('ownerOff'))
-    t['type'] = 'Maintenance' if 'maintenance' in t['labels'] else classify(r['summary'])
+    t['type'] = classify(t['labels'])
     if pd: t.update(goal=pd['goal'], deliver=pd['deliver'], urls=pd['urls'], notes=pd['notes'])
-    if jd and 'maintenance' in t['labels']:
+    if jd and ('maintenance' in t['labels'] or 'radar' in t['labels']):
         c = parse_chk(jd['desc'])
         if c: t['chk'] = c
+    if jd and not meta:
+        cat, route = structured(jd['desc'])   # Radar tickets carry their own category and route
+        if cat: t['cat'] = cat
+        if route: t['modes'] = [route]
     if meta:
         slug, cat, modes, iface, door = meta
         t.update(slug=slug, cat=cat, modes=modes, iface=iface, door=door, home=(pd['urls'][0] if pd and pd['urls'] else None))
@@ -327,6 +336,200 @@ MAINT_TEMPLATES = {
 }
 TPL_OF_KIND = {'SambaNova package': 'pkg', 'Built-in provider upstream': 'upstream', 'Provider merged upstream, no guide yet': 'upstream',
                'Internal repo': 'repo', 'Marketplace or network': 'listing'}   # docs guides use 'docs'; anything else 'general'
+# Templates used by the Radar's "Create in Jira" pop-up. {tool} = tool name. Keep the five stage keys and the
+# "Category:" / "Integration route:" lines the page writes, because structured() reads them back on refresh.
+RADAR_STAGES = [['evaluate', 'Evaluate'], ['build', 'Build'], ['docs', 'Docs'], ['review', 'Review'], ['publish', 'Publish']]
+RADAR_ORDER = ['openai', 'upstream', 'guide', 'package', 'partner', 'cookbook', 'evaluate']
+RADAR_TEMPLATES = {
+ "openai": {
+  "name": "OpenAI-compatible config",
+  "summary": "{tool} integration",
+  "route": "openai",
+  "outcome": "working SambaNova config, an end-to-end sample, a docs guide in English and Japanese.",
+  "steps": {
+   "evaluate": [
+    "Confirm {tool} accepts a custom OpenAI-compatible base URL and key",
+    "Pick the models and check chat, streaming and tool calling"
+   ],
+   "build": [
+    "Write the working config",
+    "Build an end-to-end sample"
+   ],
+   "docs": [
+    "English guide",
+    "Japanese guide"
+   ],
+   "review": [
+    "Docs PR reviewed",
+    "Guide tested from a clean setup"
+   ],
+   "publish": [
+    "Guide live",
+    "Note the {tool} version tested"
+   ]
+  }
+ },
+ "upstream": {
+  "name": "Upstream provider PR",
+  "summary": "{tool} integration",
+  "route": "native",
+  "outcome": "a SambaNova provider merged into {tool}, an end-to-end sample, a docs guide in English and Japanese.",
+  "steps": {
+   "evaluate": [
+    "Read {tool}'s guide for adding providers",
+    "Check whether an OpenAI-compatible setting works meanwhile"
+   ],
+   "build": [
+    "Implement the SambaNova provider with tests",
+    "Open the upstream PR and link it here"
+   ],
+   "docs": [
+    "English guide",
+    "Japanese guide"
+   ],
+   "review": [
+    "Address maintainer review until the PR merges",
+    "Docs PR reviewed"
+   ],
+   "publish": [
+    "Note the {tool} release that ships the provider",
+    "Guide live"
+   ]
+  }
+ },
+ "guide": {
+  "name": "Provider already upstream, guide missing",
+  "summary": "{tool} docs guide",
+  "route": "native",
+  "outcome": "a docs guide in English and Japanese for the SambaNova provider already in {tool}, with a working sample.",
+  "steps": {
+   "evaluate": [
+    "Confirm the {tool} release that ships the SambaNova provider",
+    "Check chat, streaming and tool calling with current models"
+   ],
+   "build": [
+    "Build a working sample with the provider"
+   ],
+   "docs": [
+    "English guide",
+    "Japanese guide"
+   ],
+   "review": [
+    "Docs PR reviewed",
+    "Guide tested from a clean setup"
+   ],
+   "publish": [
+    "Guide live"
+   ]
+  }
+ },
+ "package": {
+  "name": "SambaNova package or plugin",
+  "summary": "{tool} integration",
+  "route": "sdk",
+  "outcome": "a SambaNova package or plugin for {tool}, published with tests, a sample and a docs guide in English and Japanese.",
+  "steps": {
+   "evaluate": [
+    "Confirm a package is needed rather than a config",
+    "Choose the repo and registry"
+   ],
+   "build": [
+    "Implement the package with tests against SambaNova Cloud",
+    "Set up CI and releases"
+   ],
+   "docs": [
+    "English guide",
+    "Japanese guide"
+   ],
+   "review": [
+    "Code review",
+    "Docs PR reviewed"
+   ],
+   "publish": [
+    "First version published",
+    "Guide live",
+    "Add the package to the Maintenance inventory as critical"
+   ]
+  }
+ },
+ "partner": {
+  "name": "Partner or commercial",
+  "summary": "{tool} partnership",
+  "route": "partner",
+  "outcome": "an agreed partnership with SambaNova available in {tool}, with a docs guide.",
+  "steps": {
+   "evaluate": [
+    "Find the partner contact and how they onboard providers",
+    "Confirm terms with the business owner"
+   ],
+   "build": [
+    "Complete their onboarding or listing",
+    "Validate SambaNova in their product"
+   ],
+   "docs": [
+    "English guide",
+    "Japanese guide"
+   ],
+   "review": [
+    "Partner and internal review"
+   ],
+   "publish": [
+    "Listing live",
+    "Guide live"
+   ]
+  }
+ },
+ "evaluate": {
+  "name": "Route unknown, evaluate first",
+  "summary": "{tool} integration: evaluate route",
+  "route": "unknown",
+  "outcome": "a decision on how SambaNova connects to {tool}, recorded on this ticket, and a follow-up ticket with the right template.",
+  "steps": {
+   "evaluate": [
+    "Check {tool}'s docs for custom providers, OpenAI-compatible settings or plugins",
+    "Check how competitors integrate it"
+   ],
+   "build": [
+    "Build a minimal proof that the chosen route works"
+   ],
+   "docs": [
+    "Record the finding on this ticket"
+   ],
+   "review": [
+    "Review the decision with the team"
+   ],
+   "publish": [
+    "Create the follow-up from the Radar, or close as not possible"
+   ]
+  }
+ },
+ "cookbook": {
+  "name": "Cookbook",
+  "summary": "{tool} cookbook",
+  "route": "cookbook",
+  "outcome": "a runnable cookbook using SambaNova with {tool}, linked from the docs.",
+  "steps": {
+   "evaluate": [
+    "Pick the use case and models"
+   ],
+   "build": [
+    "Write and run the cookbook"
+   ],
+   "docs": [
+    "Add it to the docs or cookbook repo"
+   ],
+   "review": [
+    "Code and docs review"
+   ],
+   "publish": [
+    "Live and linked"
+   ]
+  }
+ }
+}
+# expected route on the Radar -> suggested template ('native' with the provider already upstream uses 'guide', decided in the page)
+ROUTE_TPL = {'openai': 'openai', 'anthropic': 'openai', 'native': 'upstream', 'sdk': 'package', 'partner': 'partner', 'commercial': 'partner',
+             'cookbook': 'cookbook', 'closed': 'evaluate', 'app': 'evaluate', 'adapter': 'evaluate'}
 MAINT_TIER = {}          # asset id -> tier, only for tiers the team confirmed differ from the mode rule
 MAINT_CONFIRMED = set()  # asset ids whose tier the team confirmed; all others show "Tier inferred"
 def maint_inventory():
@@ -358,12 +561,16 @@ def maint_inventory():
             m = g['modes'][0]
             if TIER_OF_MODE.get(m) == tier:
                 add(dict(id=g['slug'], name=g['name'], tier=tier, kind=KIND_OF_MODE[m], slug=g['slug'], tickets=MAINT_TICKETS.get(g['slug'], []), note=NOTE_OF_TIER[tier]))
-    unlinked = [t['key'] for t in tickets if 'maintenance' in t['labels'] and t['key'] != 'CP-2157' and not any(t['key'] in a['tickets'] for a in out)]
+    nn = lambda x: re.sub(r'[^a-z0-9]', '', (x or '').lower())
+    def linked(t):   # same rule as the page: the explicit map, or an asset name of 5+ characters inside the summary
+        return any(t['key'] in a['tickets'] for a in out) or any(len(nn(a['name'])) >= 5 and nn(a['name']) in nn(t['summary']) for a in out)
+    unlinked = [t['key'] for t in tickets if 'maintenance' in t['labels'] and t['key'] != 'CP-2157' and not linked(t)]
     if unlinked: print('maintenance tickets not linked to an asset (add to MAINT_TICKETS):', unlinked)
     return dict(generated=SNAP, cadence=MAINT_CADENCE, assets=out, templates=MAINT_TEMPLATES, stages=MAINT_STAGES)
 
 D = dict(snapshot=SNAP, docsRef=os.environ.get('DOCSREF','origin/main'), latest=G['latest'], epic='CP-1521', epicDue='2027-06-30',
          slots=[[k, *v] for k, v in SLOT_META.items()], guides=guides, review=list(review.values()), tickets=tickets, history=months,
-         trending=(json.load(open(B+'trending.json')) if os.path.exists(B+'trending.json') else []), gaps=(json.load(open(B+'gaps.json')) if os.path.exists(B+'gaps.json') else dict(fetched=None,rows=[],parity=[])), trendDate=os.environ.get('TRENDDATE', SNAP), maint=maint_inventory())
+         trending=(json.load(open(B+'trending.json')) if os.path.exists(B+'trending.json') else []), gaps=(json.load(open(B+'gaps.json')) if os.path.exists(B+'gaps.json') else dict(fetched=None,rows=[],parity=[])), trendDate=os.environ.get('TRENDDATE', SNAP), maint=maint_inventory(),
+         radarT=dict(stages=RADAR_STAGES, templates=RADAR_TEMPLATES, order=RADAR_ORDER, routeTpl=ROUTE_TPL))
 json.dump(D, open(B + 'data.json', 'w'), separators=(',', ':'))
 print('data.json written:', len(guides), 'guides,', len(tickets), 'tickets')

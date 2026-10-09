@@ -1,9 +1,12 @@
-"""Regression check: build.py must rebuild the maintenance data that is on the published page.
+"""Regression check: build.py must rebuild the data the published page depends on.
 
 Usage (from the repo root):  python3 tests/check_build.py
 Reads artifact/index.html (the last published page), reconstructs build.py's inputs from its data
-block, runs build.py, and compares D.maint (cadence, stages, templates, every asset) with the page.
-Run it after changing any MAINT_* map or template, then update artifact/index.html when you publish.
+block, runs build.py, and compares:
+  - D.maint: cadence, stages, templates and every asset
+  - D.radarT: stages, templates, order and route-to-template map
+  - every ticket's type (which comes only from its Jira labels)
+Run it after changing a curated map or template, and update artifact/index.html when you publish.
 """
 import json, os, re, subprocess, sys, tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,12 +24,18 @@ json.dump([], open(f'{work}/jira_desc.json', 'w'))
 json.dump(D['trending'], open(f'{work}/trending.json', 'w'))
 env = dict(os.environ, WORK=work, SNAPSHOT=D['maint']['generated'])
 subprocess.run([sys.executable, os.path.join(SKILL, 'scripts', 'build.py')], env=env, check=True, stdout=subprocess.DEVNULL)
-a, b = json.load(open(f'{work}/data.json'))['maint'], D['maint']
-problems = [k for k in ('cadence', 'stages', 'templates') if a.get(k) != b.get(k)]
+out = json.load(open(f'{work}/data.json'))
+problems = []
+a, b = out['maint'], D['maint']
+problems += [f'maint.{k} differs' for k in ('cadence', 'stages', 'templates') if a.get(k) != b.get(k)]
 A, B = {x['id']: x for x in a['assets']}, {x['id']: x for x in b['assets']}
 if set(A) != set(B): problems.append(f'asset ids differ: only build {sorted(set(A)-set(B))}, only page {sorted(set(B)-set(A))}')
 for i in set(A) & set(B):
     for k in set(A[i]) | set(B[i]):
-        if A[i].get(k) != B[i].get(k): problems.append(f'{i}.{k}: build={A[i].get(k)!r} page={B[i].get(k)!r}')
-print('OK: build.py reproduces the page\'s maintenance data' if not problems else 'MISMATCH:\n  ' + '\n  '.join(problems[:20]))
+        if A[i].get(k) != B[i].get(k): problems.append(f'asset {i}.{k}: build={A[i].get(k)!r} page={B[i].get(k)!r}')
+ra, rb = out.get('radarT') or {}, D.get('radarT') or {}
+problems += [f'radarT.{k} differs' for k in ('stages', 'templates', 'order', 'routeTpl') if ra.get(k) != rb.get(k)]
+TA = {t['key']: t['type'] for t in out['tickets']}
+problems += [f'ticket {t["key"]} type: build={TA.get(t["key"])!r} page={t["type"]!r}' for t in D['tickets'] if TA.get(t['key']) != t['type']]
+print('OK: build.py reproduces the page\'s maintenance data, Radar templates and ticket types' if not problems else 'MISMATCH:\n  ' + '\n  '.join(problems[:25]))
 sys.exit(1 if problems else 0)
